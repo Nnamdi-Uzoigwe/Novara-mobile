@@ -1,4 +1,5 @@
 import { ThemeProvider, useTheme } from "@/core/theme/ThemeProvider";
+import { AnimatedSplash } from "@/features/splash/components/AnimatedSplash";
 import {
   Urbanist_400Regular,
   Urbanist_500Medium,
@@ -9,7 +10,7 @@ import {
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +36,9 @@ export default function RootLayout() {
     Urbanist_600SemiBold,
     Urbanist_700Bold,
   });
+  const [splashDone, setSplashDone] = useState(false);
+
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
@@ -44,7 +48,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <RootStack />
+      {splashDone ? (
+        <RootStack />
+      ) : (
+        <AnimatedSplash onFinish={handleSplashFinish} />
+      )}
     </ThemeProvider>
   );
 }

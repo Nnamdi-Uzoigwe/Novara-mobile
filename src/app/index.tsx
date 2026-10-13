@@ -1,18 +1,5 @@
-import { AppText } from "@/shared/components/AppText";
-import { StyleSheet, View } from "react-native";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <AppText size={30}>Edit src/app/index.tsx to edit this screen.</AppText>
-    </View>
-  );
+  return <Redirect href="/(onboarding)/intro-one" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
