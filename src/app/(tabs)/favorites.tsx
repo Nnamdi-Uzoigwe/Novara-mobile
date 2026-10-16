@@ -80,9 +80,7 @@ export default function FavoritesScreen() {
         showBack={false}
         right={
           <TouchableOpacity
-            onPress={() => {
-              // TODO (notifications step): router.push("/notifications")
-            }}
+            onPress={() => router.push("/notifications")}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Notifications"

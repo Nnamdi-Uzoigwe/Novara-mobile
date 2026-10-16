@@ -15,6 +15,7 @@ import { getProducts } from "@/features/products/queries";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { TopTabs } from "@/shared/components/TopTabs";
 import { useFavoritesStore } from "@/store/favoritesStore";
+import { useNotificationsStore } from "@/store/notificationsStore";
 import { firstName, useUserStore } from "@/store/userStore";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -29,6 +30,7 @@ export default function Home() {
 
   const [tab, setTab] = useState(0);
   const user = useUserStore((s) => s.user);
+  const hasUnread = useNotificationsStore((s) => s.items.some((n) => !n.read));
 
   const favoriteIds = useFavoritesStore((s) => s.ids);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
@@ -86,12 +88,10 @@ export default function Home() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <HomeHeader
         name={firstName(user?.name)}
+        hasUnread={hasUnread}
         avatar={user?.avatarUri ? { uri: user.avatarUri } : undefined}
-        hasUnread
         onSearchPress={() => router.push("/search")}
-        onBellPress={() => {
-          // TODO (notifications step): router.push("/notifications")
-        }}
+        onBellPress={() => router.push("/notifications")}
       />
 
       <TopTabs tabs={TABS} activeIndex={tab} onChange={setTab} />

@@ -91,16 +91,12 @@ export default function ProfileScreen() {
           <SettingsRow
             icon="bell"
             title="Notifications"
-            onPress={() => {
-              // TODO (chunk 4): router.push("/notifications/settings")
-            }}
+            onPress={() => router.push("/notifications/settings")}
           />
           <SettingsRow
             icon="shield"
             title="Security"
-            onPress={() => {
-              // TODO (chunk 4): router.push("/settings/security")
-            }}
+            onPress={() => router.push("/settings/security")}
           />
           <SettingsRow
             icon="globe"
