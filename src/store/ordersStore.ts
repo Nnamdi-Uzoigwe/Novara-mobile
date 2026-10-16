@@ -9,6 +9,7 @@ type OrdersState = {
   orders: Order[];
   placeOrder: (input: NewOrder) => Order;
   markCompleted: (id: string) => void;
+  clear: () => void;
 };
 
 export const useOrdersStore = create<OrdersState>()(
@@ -33,6 +34,8 @@ export const useOrdersStore = create<OrdersState>()(
             order.id === id ? { ...order, status: "completed" } : order,
           ),
         })),
+
+      clear: () => set({ orders: [] }),
     }),
     {
       name: "novara-orders",

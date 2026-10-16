@@ -24,6 +24,8 @@ type PaymentState = {
   selectedId: string | null;
   select: (id: string) => void;
   addMethod: (method: PaymentMethod) => void;
+  /** Back to the starting mock methods. With a real backend this becomes an empty list */
+  reset: () => void;
 };
 
 export const usePaymentStore = create<PaymentState>()(
@@ -37,6 +39,7 @@ export const usePaymentStore = create<PaymentState>()(
           methods: [...state.methods, method],
           selectedId: method.id,
         })),
+      reset: () => set({ methods: DEFAULT_METHODS, selectedId: "mastercard" }),
     }),
     {
       name: "novara-payment",

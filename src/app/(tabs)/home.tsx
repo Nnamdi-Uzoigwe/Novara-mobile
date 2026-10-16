@@ -15,6 +15,7 @@ import { getProducts } from "@/features/products/queries";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { TopTabs } from "@/shared/components/TopTabs";
 import { useFavoritesStore } from "@/store/favoritesStore";
+import { firstName, useUserStore } from "@/store/userStore";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
@@ -27,6 +28,7 @@ export default function Home() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [tab, setTab] = useState(0);
+  const user = useUserStore((s) => s.user);
 
   const favoriteIds = useFavoritesStore((s) => s.ids);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
@@ -83,7 +85,8 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <HomeHeader
-        name="Jonathan"
+        name={firstName(user?.name)}
+        avatar={user?.avatarUri ? { uri: user.avatarUri } : undefined}
         hasUnread
         onSearchPress={() => router.push("/search")}
         onBellPress={() => {
