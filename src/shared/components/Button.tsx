@@ -26,7 +26,7 @@ export type IconPosition = "before" | "after";
 export type ButtonIcon = React.ReactNode | ((color: string) => React.ReactNode);
 
 export type ButtonProps = Omit<PressableProps, "style" | "children"> & {
-  label: string;
+  label: React.ReactNode;
   onPress?: () => void;
   icon?: ButtonIcon;
   iconPosition?: IconPosition;
@@ -122,7 +122,7 @@ export function Button({
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
+      // accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.base,

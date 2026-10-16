@@ -1,17 +1,18 @@
-import { StepThree } from "@/features/onboarding/components/StepThree";
+import CreateAccount from "@/features/auth/components/CreateAccount";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function IntroThree() {
+export default function Signup() {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StepThree />
+      <CreateAccount />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
     paddingHorizontal: 20,
   },
 });
