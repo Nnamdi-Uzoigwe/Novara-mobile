@@ -35,9 +35,11 @@ export function EmptyState({
       <AppText size={14} weight="medium" color="textSecondary" align="center">
         {subtitle}
       </AppText>
-      {actionLabel && onAction && (
-        <Button label={actionLabel} fullWidth={false} onPress={onAction} />
-      )}
+      <View style={styles.center}>
+        {actionLabel && onAction && (
+          <Button label={actionLabel} fullWidth={false} onPress={onAction} />
+        )}
+      </View>
     </View>
   );
 }
@@ -59,5 +61,8 @@ const createStyles = (c: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 8,
+    },
+    center: {
+      justifyContent: "center",
     },
   });

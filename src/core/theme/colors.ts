@@ -13,6 +13,7 @@ export type ThemeColors = {
   borderStrong: string;
   handle: string;
   danger: string;
+  warning: string;
   success: string;
   shadow: string;
 };
@@ -29,6 +30,7 @@ export const lightColors: ThemeColors = {
   border: "#E6E6EA",
   borderStrong: "#CFCFD6",
   handle: "#D6D6DB",
+  warning: "#F2994A",
   danger: "#E5484D",
   success: "#2FA66A",
   shadow: "#000000",
@@ -46,6 +48,7 @@ export const darkColors: ThemeColors = {
   border: "#2E2E3A",
   borderStrong: "#4A4A58",
   handle: "#4A4A58",
+  warning: "#F7B267",
   danger: "#F2686C",
   success: "#4CC38A",
   shadow: "#000000",

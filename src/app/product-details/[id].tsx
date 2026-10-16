@@ -314,6 +314,7 @@ import { QuantityStepper } from "@/shared/components/QuantityStepper";
 import { colorName } from "@/shared/utils/colorName";
 import { formatPrice } from "@/shared/utils/formatPrice";
 import { useCartStore } from "@/store/cartStore";
+import { useFavoritesStore } from "@/store/favoritesStore";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -342,7 +343,8 @@ export default function ProductDetails() {
 
   const [quantity, setQuantity] = useState(1);
   const [colorIndex, setColorIndex] = useState(0);
-  const [favorite, setFavorite] = useState(false); // TODO: connect to a favorites store
+  const favorite = useFavoritesStore((s) => s.ids.includes(id));
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
   const [following, setFollowing] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -378,7 +380,7 @@ export default function ProductDetails() {
 
   const handleFavorite = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setFavorite((prev) => !prev);
+    toggleFavorite(product.id);
   };
 
   const handleAddToCart = () => {

@@ -6,7 +6,7 @@
 
 import { Onboarding } from "@/features/onboarding/components/Onboarding";
 import { router } from "expo-router";
-import { StyleSheet } from "react-native";
+import { StatusBar, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // const AUTO_NEXT_MS = 3000;
@@ -38,6 +38,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function IntroOne() {
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="default" />
       <Onboarding
         onCreateAccount={() => router.replace("/(auth)/signup")}
         onLogin={() => router.replace("/(auth)/login")}

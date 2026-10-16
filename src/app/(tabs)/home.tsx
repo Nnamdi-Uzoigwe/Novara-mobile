@@ -1,23 +1,3 @@
-// import HomeScreen from "@/features/home/components/HomeScreen";
-// import { StyleSheet } from "react-native";
-// import { SafeAreaView } from "react-native-safe-area-context";
-
-// export default function Home() {
-//   return (
-//     <SafeAreaView style={styles.safeArea}>
-//       <HomeScreen />
-//     </SafeAreaView>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   safeArea: {
-//     paddingHorizontal: 20,
-//     backgroundColor: "#fff",
-//     flex: 1,
-//   },
-// });
-
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
 import { CategoryCard } from "@/features/home/components/CategoryCard";
@@ -25,10 +5,16 @@ import { HomeHeader } from "@/features/home/components/HomeHeader";
 import { ProductCard } from "@/features/home/components/ProductCard";
 import { PromoBanner } from "@/features/home/components/PromoBanner";
 import { SectionHeader } from "@/features/home/components/SectionHeader";
-import { BANNERS, CATEGORIES, PRODUCTS } from "@/features/home/data/mock";
+import {
+  BANNERS,
+  CATEGORIES,
+  NEW_ARRIVALS_CATEGORY_ID,
+} from "@/features/home/data/mock";
 import type { Category, Product } from "@/features/home/types";
+import { getProducts } from "@/features/products/queries";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { TopTabs } from "@/shared/components/TopTabs";
+import { useFavoritesStore } from "@/store/favoritesStore";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
@@ -41,13 +27,14 @@ export default function Home() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [tab, setTab] = useState(0);
-  const [favorites, setFavorites] = useState<string[]>([]);
 
-  const toggleFavorite = useCallback((id: string) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  }, []);
+  const favoriteIds = useFavoritesStore((s) => s.ids);
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
+
+  const newArrivals = useMemo(
+    () => getProducts({ sort: "latest" }).slice(0, 6),
+    [],
+  );
 
   const handleProductPress = useCallback((product: Product) => {
     router.push({
@@ -57,19 +44,29 @@ export default function Home() {
   }, []);
 
   const handleCategoryPress = useCallback((category: Category) => {
-    // TODO: navigate to the products-by-category screen
+    router.push({
+      pathname: "/products",
+      params: { title: category.name, category: category.id },
+    });
+  }, []);
+
+  const handleSeeAll = useCallback(() => {
+    router.push({
+      pathname: "/products",
+      params: { title: "New Arrivals", category: NEW_ARRIVALS_CATEGORY_ID },
+    });
   }, []);
 
   const renderProduct = useCallback(
     ({ item }: { item: Product }) => (
       <ProductCard
         product={item}
-        isFavorite={favorites.includes(item.id)}
+        isFavorite={favoriteIds.includes(item.id)}
         onToggleFavorite={toggleFavorite}
         onPress={handleProductPress}
       />
     ),
-    [favorites, toggleFavorite, handleProductPress],
+    [favoriteIds, toggleFavorite, handleProductPress],
   );
 
   const renderCategory = useCallback(
@@ -88,8 +85,10 @@ export default function Home() {
       <HomeHeader
         name="Jonathan"
         hasUnread
-        onSearchPress={() => {}}
-        onBellPress={() => {}}
+        onSearchPress={() => router.push("/search")}
+        onBellPress={() => {
+          // TODO (notifications step): router.push("/notifications")
+        }}
       />
 
       <TopTabs tabs={TABS} activeIndex={tab} onChange={setTab} />
@@ -98,7 +97,7 @@ export default function Home() {
       <FadeInView key={tab} style={styles.flex} duration={350} distance={12}>
         {tab === 0 ? (
           <FlatList
-            data={PRODUCTS}
+            data={newArrivals}
             keyExtractor={(item) => item.id}
             numColumns={2}
             renderItem={renderProduct}
@@ -111,7 +110,7 @@ export default function Home() {
                 <SectionHeader
                   title="New Arrivals"
                   emoji="🔥"
-                  onSeeAll={() => {}}
+                  onSeeAll={handleSeeAll}
                 />
               </View>
             }

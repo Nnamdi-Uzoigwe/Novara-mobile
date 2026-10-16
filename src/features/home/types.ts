@@ -14,6 +14,9 @@ export type Product = {
   seller: string;
   price: number;
   image: ImageSource;
+  categoryId?: string;
+  /** Used for the "Latest" sort */
+  createdAt?: number;
   // Optional details, used by the product details screen
   rating?: number;
   reviewCount?: number;

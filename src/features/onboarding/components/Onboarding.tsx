@@ -151,11 +151,11 @@ import { FadeInView } from "@/shared/components/FadeInView";
 import { StoryProgress } from "@/shared/components/StoryProgress";
 import { useState } from "react";
 import {
-    Image,
-    ImageSourcePropType,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Image,
+  ImageSourcePropType,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type Slide = {
