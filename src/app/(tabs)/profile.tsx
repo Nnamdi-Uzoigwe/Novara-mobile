@@ -1,6 +1,7 @@
 import { LOGIN_ROUTE } from "@/core/routes";
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { LanguageSheet } from "@/features/settings/components/LanguageSheet";
 import { AppText } from "@/shared/components/AppText";
 import { Avatar } from "@/shared/components/Avatar";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
 
   const user = useUserStore((s) => s.user);
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   const leave = () => {
     setDialog(null);
@@ -102,9 +104,7 @@ export default function ProfileScreen() {
             icon="globe"
             title="Language"
             value="English"
-            onPress={() => {
-              // TODO (chunk 5): open the language sheet
-            }}
+            onPress={() => setLanguageOpen(true)}
           />
         </View>
 
@@ -117,16 +117,12 @@ export default function ProfileScreen() {
           <SettingsRow
             icon="file-text"
             title="Legal and Policies"
-            onPress={() => {
-              // TODO (chunk 5): router.push("/settings/legal")
-            }}
+            onPress={() => router.push("/settings/legal")}
           />
           <SettingsRow
             icon="help-circle"
             title="Help & Support"
-            onPress={() => {
-              // TODO (chunk 5): router.push("/settings/help-support")
-            }}
+            onPress={() => router.push("/settings/help-support")}
           />
           <SettingsRow
             icon="trash-2"
@@ -162,6 +158,10 @@ export default function ProfileScreen() {
         destructive
         onCancel={() => setDialog(null)}
         onConfirm={handleDeleteAccount}
+      />
+      <LanguageSheet
+        visible={languageOpen}
+        onClose={() => setLanguageOpen(false)}
       />
     </View>
   );
