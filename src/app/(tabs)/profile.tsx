@@ -1,38 +1,44 @@
-import { LOGIN_ROUTE } from "@/core/routes";
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { DeleteAccountSheet } from "@/features/settings/components/DeleteAccountSheet";
 import { LanguageSheet } from "@/features/settings/components/LanguageSheet";
 import { AppText } from "@/shared/components/AppText";
 import { Avatar } from "@/shared/components/Avatar";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
 import { SettingsRow } from "@/shared/components/SettingsRow";
-import { clearAccountData } from "@/store/session";
+import { useAuthStore } from "@/store/authStore";
 import { useUserStore } from "@/store/userStore";
 import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-type DialogKind = "logout" | "delete" | null;
+type DialogKind = "logout" | null;
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const user = useUserStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
 
-  const leave = () => {
+  // Once signed out, "/" sends you to the login screen
+  const goToStart = () => router.replace("/");
+
+  const handleLogout = async () => {
     setDialog(null);
-    clearAccountData();
-    router.replace(LOGIN_ROUTE);
+    await signOut();
+    goToStart();
   };
 
-  const handleDeleteAccount = () => {
-    // TODO: call your API to delete the account, and only continue if it succeeds
-    leave();
+  const handleDeleted = () => {
+    setDeleteOpen(false);
+    goToStart();
   };
 
   return (
@@ -85,11 +91,13 @@ export default function ProfileScreen() {
             title="Edit Profile"
             onPress={() => router.push("/settings/edit-profile")}
           />
-          <SettingsRow
-            icon="lock"
-            title="Change Password"
-            onPress={() => router.push("/settings/change-password")}
-          />
+          {user?.provider !== "google" && (
+            <SettingsRow
+              icon="lock"
+              title="Change Password"
+              onPress={() => router.push("/settings/change-password")}
+            />
+          )}
           <SettingsRow
             icon="bell"
             title="Notifications"
@@ -129,7 +137,7 @@ export default function ProfileScreen() {
             title="Delete Account"
             tone="danger"
             showChevron={false}
-            onPress={() => setDialog("delete")}
+            onPress={() => setDeleteOpen(true)}
           />
           <SettingsRow
             icon="log-out"
@@ -147,18 +155,15 @@ export default function ProfileScreen() {
         confirmLabel="Log Out"
         destructive
         onCancel={() => setDialog(null)}
-        onConfirm={leave}
+        onConfirm={handleLogout}
       />
 
-      <ConfirmDialog
-        visible={dialog === "delete"}
-        title="Delete your account?"
-        message="This permanently removes your profile, orders and saved data. This cannot be undone."
-        confirmLabel="Delete Account"
-        destructive
-        onCancel={() => setDialog(null)}
-        onConfirm={handleDeleteAccount}
+      <DeleteAccountSheet
+        visible={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={handleDeleted}
       />
+
       <LanguageSheet
         visible={languageOpen}
         onClose={() => setLanguageOpen(false)}

@@ -28,13 +28,11 @@
       [
         "expo-splash-screen",
         {
-          // "backgroundColor": "#208AEF",
-          // "image": "./assets/images/splash-icon.png",
-          // "imageWidth": 76
           "backgroundColor": "#5B4BB8"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

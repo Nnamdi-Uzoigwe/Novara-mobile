@@ -1,23 +1,25 @@
+import { errorMessage, fieldErrorsFrom } from "@/core/api/ApiClientError";
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { accountApi } from "@/features/account/api";
 import { AppInput } from "@/shared/components/AppInput";
 import { AppText } from "@/shared/components/AppText";
 import { Avatar } from "@/shared/components/Avatar";
 import { Button } from "@/shared/components/Button";
+import { FormField } from "@/shared/components/FormField";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
+import { toStoreUser } from "@/store/authStore";
 import { useUserStore } from "@/store/userStore";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,35 +31,38 @@ export default function EditProfileScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const user = useUserStore((s) => s.user);
-  const updateProfile = useUserStore((s) => s.updateProfile);
+  const setUser = useUserStore((s) => s.setUser);
 
   const [name, setName] = useState(user?.name ?? "");
-  const [avatar, setAvatar] = useState(user?.avatarUri);
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const nameError = name.trim().length >= 2 ? "" : "Enter your name";
-  const dirty =
-    name.trim() !== (user?.name ?? "") || avatar !== user?.avatarUri;
+  const dirty = name.trim() !== (user?.name ?? "");
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (!result.canceled) setAvatar(result.assets[0].uri);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     setSubmitted(true);
-    if (nameError) return;
+    setServerError("");
+    setFormError("");
 
-    // TODO: upload the photo and send the new name to your API
-    updateProfile({ name: name.trim(), avatarUri: avatar });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.back();
+    if (nameError || loading) return;
+
+    setLoading(true);
+    try {
+      const result = await accountApi.updateMe({ name: name.trim() });
+      setUser(toStoreUser(result.user));
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.back();
+    } catch (err) {
+      const fields = fieldErrorsFrom(err);
+      if (fields.name) setServerError(fields.name);
+      else setFormError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,24 +75,15 @@ export default function EditProfileScreen() {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo */}
+        {/* TODO: photo upload comes with the image storage step */}
         <View style={styles.avatarWrap}>
-          <Avatar uri={avatar} size={116} />
-          <TouchableOpacity
-            style={styles.cameraBtn}
-            onPress={pickImage}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Change photo"
-          >
-            <Feather name="camera" size={16} color={colors.onPrimary} />
-          </TouchableOpacity>
+          <Avatar uri={user?.avatarUri} size={116} />
         </View>
 
-        <View style={styles.field}>
-          <AppText size={16} weight="bold">
-            Username
-          </AppText>
+        <FormField
+          label="Username"
+          error={(submitted ? nameError : "") || serverError}
+        >
           <AppInput
             variant="outlined"
             icon="user"
@@ -97,19 +93,11 @@ export default function EditProfileScreen() {
             autoCapitalize="words"
             textContentType="name"
             autoComplete="name"
-            error={submitted && !!nameError}
+            error={(submitted && !!nameError) || !!serverError}
           />
-          {submitted && !!nameError && (
-            <AppText size={12} weight="semibold" color="danger">
-              {nameError}
-            </AppText>
-          )}
-        </View>
+        </FormField>
 
-        <View style={styles.field}>
-          <AppText size={16} weight="bold">
-            Email or Phone Number
-          </AppText>
+        <FormField label="Email or Phone Number">
           <AppInput
             variant="outlined"
             icon="mail"
@@ -117,13 +105,10 @@ export default function EditProfileScreen() {
             editable={false}
             style={styles.readOnly}
           />
-        </View>
+        </FormField>
 
         {user?.provider === "google" && (
-          <View style={styles.field}>
-            <AppText size={16} weight="bold">
-              Account Linked With
-            </AppText>
+          <FormField label="Account Linked With">
             <View style={styles.linkedRow}>
               <Ionicons name="logo-google" size={20} color={GOOGLE_BLUE} />
               <AppText size={14} weight="semibold" style={styles.flex}>
@@ -131,7 +116,13 @@ export default function EditProfileScreen() {
               </AppText>
               <Feather name="link" size={18} color={colors.textPlaceholder} />
             </View>
-          </View>
+          </FormField>
+        )}
+
+        {!!formError && (
+          <AppText size={13} weight="semibold" color="danger" align="center">
+            {formError}
+          </AppText>
         )}
       </ScrollView>
 
@@ -139,6 +130,7 @@ export default function EditProfileScreen() {
         <Button
           label="Save Changes"
           size="lg"
+          loading={loading}
           disabled={!dirty}
           onPress={handleSave}
         />
@@ -165,22 +157,6 @@ const createStyles = (c: ThemeColors) =>
     avatarWrap: {
       alignSelf: "center",
       marginBottom: 6,
-    },
-    cameraBtn: {
-      position: "absolute",
-      right: 0,
-      bottom: 4,
-      height: 34,
-      width: 34,
-      borderRadius: 17,
-      backgroundColor: c.primary,
-      borderWidth: 3,
-      borderColor: c.background,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    field: {
-      gap: 8,
     },
     readOnly: {
       opacity: 0.6,
