@@ -3,7 +3,7 @@ import { request } from "@/core/api/http";
 import { getAccessToken, refreshTokens } from "@/core/api/tokens";
 
 type Options = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Set to false for sign-in style calls that need no token. Defaults to true */
   auth?: boolean;

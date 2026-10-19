@@ -314,24 +314,6 @@ const product = ({
   createdAt: NOW - daysAgo * DAY,
 });
 
-// export const BANNERS: Banner[] = [
-//   {
-//     id: "b1",
-//     title: "Find your everyday carry, for less",
-//     subtitle: "Discover bags made for every occasion",
-//   },
-//   {
-//     id: "b2",
-//     title: "Step into something new",
-//     subtitle: "Fresh sneakers for wherever life takes you",
-//   },
-//   {
-//     id: "b3",
-//     title: "Your next favourite find is here",
-//     subtitle: "Explore the latest arrivals at Novara",
-//   },
-// ];
-
 export const BANNERS: Banner[] = [
   {
     id: "b1",

@@ -1,13 +1,15 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { useFavorites } from "@/features/catalog/hooks";
+import type { SortKey } from "@/features/catalog/types";
 import { PriceFilterSheet } from "@/features/products/components/PriceFilterSheet";
 import { ProductGridList } from "@/features/products/components/ProductGridList";
-import { getProducts, type SortKey } from "@/features/products/queries";
+import { filterAndSort } from "@/features/products/filter";
 import { AppInput } from "@/shared/components/AppInput";
 import { Chip } from "@/shared/components/Chip";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
-import { useFavoritesStore } from "@/store/favoritesStore";
+import { useRefresh } from "@/shared/hooks/useRefresh";
 import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
@@ -25,23 +27,25 @@ export default function FavoritesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const ids = useFavoritesStore((s) => s.ids);
+  const favorites = useFavorites();
+  const { refreshing, onRefresh } = useRefresh(favorites.refetch);
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("all");
   const [range, setRange] = useState<{ min?: number; max?: number }>({});
   const [filterOpen, setFilterOpen] = useState(false);
 
+  const saved = favorites.data ?? [];
+
   const products = useMemo(
     () =>
-      getProducts({
-        ids,
+      filterAndSort(saved, {
         search,
         sort,
         minPrice: range.min,
         maxPrice: range.max,
       }),
-    [ids, search, sort, range],
+    [saved, search, sort, range],
   );
 
   const priceFilterActive = range.min !== undefined || range.max !== undefined;
@@ -55,7 +59,7 @@ export default function FavoritesScreen() {
   };
 
   const empty =
-    ids.length === 0 ? (
+    saved.length === 0 ? (
       <EmptyState
         icon="heart"
         title="No favorites yet"
@@ -90,7 +94,7 @@ export default function FavoritesScreen() {
         }
       />
 
-      {ids.length > 0 && (
+      {saved.length > 0 && (
         <View style={styles.controls}>
           <AppInput
             variant="outlined"
@@ -134,7 +138,17 @@ export default function FavoritesScreen() {
         </View>
       )}
 
-      <ProductGridList products={products} empty={empty} />
+      <ProductGridList
+        products={products}
+        loading={favorites.isLoading}
+        error={
+          favorites.isError && saved.length === 0 ? favorites.error : undefined
+        }
+        onRetry={() => favorites.refetch()}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        empty={empty}
+      />
 
       <PriceFilterSheet
         visible={filterOpen}

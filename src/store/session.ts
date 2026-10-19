@@ -1,6 +1,6 @@
+import { queryClient } from "@/core/api/queryClient";
 import { useAddressStore } from "@/store/addressStore";
 import { useCartStore } from "@/store/cartStore";
-import { useFavoritesStore } from "@/store/favoritesStore";
 import { useNotificationsStore } from "@/store/notificationsStore";
 import { useOrdersStore } from "@/store/ordersStore";
 import { usePaymentStore } from "@/store/paymentStore";
@@ -14,8 +14,9 @@ export function clearAccountData() {
   useOrdersStore.getState().clear();
   useAddressStore.getState().clear();
   usePaymentStore.getState().reset();
-  useFavoritesStore.getState().clear();
   useSearchStore.getState().clear();
   useNotificationsStore.getState().reset();
+  // Favorites and any other downloaded data
+  queryClient.clear();
   // TODO: also delete the saved session token from expo-secure-store once sign-in is real
 }

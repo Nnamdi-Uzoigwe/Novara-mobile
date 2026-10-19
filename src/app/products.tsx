@@ -1,10 +1,12 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import { NEW_ARRIVALS_CATEGORY_ID } from "@/features/home/data/mock";
+import { NEW_ARRIVALS_CATEGORY_ID } from "@/features/catalog/constants";
+import { useInfiniteProducts } from "@/features/catalog/hooks";
+import type { ProductQuery } from "@/features/catalog/types";
 import { ProductGridList } from "@/features/products/components/ProductGridList";
-import { getProducts } from "@/features/products/queries";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
+import { useRefresh } from "@/shared/hooks/useRefresh";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
@@ -18,14 +20,22 @@ export default function ProductsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const products = useMemo(
-    () =>
-      getProducts({
-        categoryId: category,
-        search: q,
-        sort: category === NEW_ARRIVALS_CATEGORY_ID ? "latest" : "all",
-      }),
+  const query = useMemo<ProductQuery>(
+    () => ({
+      category,
+      q,
+      sort: category === NEW_ARRIVALS_CATEGORY_ID ? "latest" : "all",
+      limit: 20,
+    }),
     [category, q],
+  );
+
+  const result = useInfiniteProducts(query);
+  const { refreshing, onRefresh } = useRefresh(result.refetch);
+
+  const products = useMemo(
+    () => result.data?.pages.flatMap((page) => page.items) ?? [],
+    [result.data],
   );
 
   const heading = title ?? (q ? `Results for "${q}"` : "Products");
@@ -36,6 +46,17 @@ export default function ProductsScreen() {
 
       <ProductGridList
         products={products}
+        loading={result.isLoading}
+        error={result.error}
+        onRetry={() => result.refetch()}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        loadingMore={result.isFetchingNextPage}
+        onEndReached={() => {
+          if (result.hasNextPage && !result.isFetchingNextPage) {
+            result.fetchNextPage();
+          }
+        }}
         empty={
           <EmptyState
             icon="shopping-bag"

@@ -1,44 +1,70 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { NEW_ARRIVALS_CATEGORY_ID } from "@/features/catalog/constants";
+import {
+  useBanners,
+  useCategories,
+  useFavoriteIds,
+  useProducts,
+  useToggleFavorite,
+} from "@/features/catalog/hooks";
 import { CategoryCard } from "@/features/home/components/CategoryCard";
 import { HomeHeader } from "@/features/home/components/HomeHeader";
 import { ProductCard } from "@/features/home/components/ProductCard";
 import { PromoBanner } from "@/features/home/components/PromoBanner";
 import { SectionHeader } from "@/features/home/components/SectionHeader";
 import {
-  BANNERS,
-  CATEGORIES,
-  NEW_ARRIVALS_CATEGORY_ID,
-} from "@/features/home/data/mock";
+  BannerSkeleton,
+  CATEGORY_SKELETONS,
+  CategoryCardSkeleton,
+  isSkeleton,
+  PRODUCT_SKELETONS,
+  ProductCardSkeleton,
+  type SkeletonItem,
+} from "@/features/home/components/Skeletons";
 import type { Category, Product } from "@/features/home/types";
-import { getProducts } from "@/features/products/queries";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { TopTabs } from "@/shared/components/TopTabs";
-import { useFavoritesStore } from "@/store/favoritesStore";
+import { useRefresh } from "@/shared/hooks/useRefresh";
 import { useNotificationsStore } from "@/store/notificationsStore";
 import { firstName, useUserStore } from "@/store/userStore";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const TABS = ["Home", "Category"];
+
+type ProductItem = Product | SkeletonItem;
+type CategoryItem = Category | SkeletonItem;
 
 export default function Home() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [tab, setTab] = useState(0);
+
   const user = useUserStore((s) => s.user);
   const hasUnread = useNotificationsStore((s) => s.items.some((n) => !n.read));
 
-  const favoriteIds = useFavoritesStore((s) => s.ids);
-  const toggleFavorite = useFavoritesStore((s) => s.toggle);
+  const banners = useBanners();
+  const categories = useCategories();
+  const arrivals = useProducts({ sort: "latest", limit: 6 });
 
-  const newArrivals = useMemo(
-    () => getProducts({ sort: "latest" }).slice(0, 6),
-    [],
+  const favoriteIds = useFavoriteIds();
+  const toggleFavorite = useToggleFavorite();
+
+  const refetchAll = useCallback(
+    () =>
+      Promise.all(
+        tab === 0
+          ? [banners.refetch(), arrivals.refetch()]
+          : [categories.refetch()],
+      ),
+    [tab, banners.refetch, arrivals.refetch, categories.refetch],
   );
+  const { refreshing, onRefresh } = useRefresh(refetchAll);
 
   const handleProductPress = useCallback((product: Product) => {
     router.push({
@@ -62,34 +88,56 @@ export default function Home() {
   }, []);
 
   const renderProduct = useCallback(
-    ({ item }: { item: Product }) => (
-      <ProductCard
-        product={item}
-        isFavorite={favoriteIds.includes(item.id)}
-        onToggleFavorite={toggleFavorite}
-        onPress={handleProductPress}
-      />
-    ),
+    ({ item }: { item: ProductItem }) =>
+      isSkeleton(item) ? (
+        <ProductCardSkeleton />
+      ) : (
+        <ProductCard
+          product={item}
+          isFavorite={favoriteIds.has(item.id)}
+          onToggleFavorite={toggleFavorite}
+          onPress={handleProductPress}
+        />
+      ),
     [favoriteIds, toggleFavorite, handleProductPress],
   );
 
   const renderCategory = useCallback(
-    ({ item, index }: { item: Category; index: number }) => (
-      <CategoryCard
-        category={item}
-        index={index}
-        onPress={handleCategoryPress}
-      />
-    ),
+    ({ item, index }: { item: CategoryItem; index: number }) =>
+      isSkeleton(item) ? (
+        <CategoryCardSkeleton />
+      ) : (
+        <CategoryCard
+          category={item}
+          index={index}
+          onPress={handleCategoryPress}
+        />
+      ),
     [handleCategoryPress],
   );
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={colors.primary}
+    />
+  );
+
+  const products = arrivals.data?.items ?? [];
+  const productData: ProductItem[] = arrivals.isLoading
+    ? PRODUCT_SKELETONS
+    : products;
+  const categoryData: CategoryItem[] = categories.isLoading
+    ? CATEGORY_SKELETONS
+    : (categories.data ?? []);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <HomeHeader
         name={firstName(user?.name)}
-        hasUnread={hasUnread}
         avatar={user?.avatarUri ? { uri: user.avatarUri } : undefined}
+        hasUnread={hasUnread}
         onSearchPress={() => router.push("/search")}
         onBellPress={() => router.push("/notifications")}
       />
@@ -99,17 +147,23 @@ export default function Home() {
       {/* flex: 1 here gives the list a real height to scroll within */}
       <FadeInView key={tab} style={styles.flex} duration={350} distance={12}>
         {tab === 0 ? (
-          <FlatList
-            data={newArrivals}
+          <FlatList<ProductItem>
+            data={productData}
             keyExtractor={(item) => item.id}
             numColumns={2}
             renderItem={renderProduct}
             columnWrapperStyle={styles.columns}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
             ListHeaderComponent={
               <View>
-                <PromoBanner banners={BANNERS} horizontalPadding={20} />
+                {banners.isLoading ? (
+                  <BannerSkeleton />
+                ) : banners.data && banners.data.length > 0 ? (
+                  <PromoBanner banners={banners.data} horizontalPadding={20} />
+                ) : null}
+
                 <SectionHeader
                   title="New Arrivals"
                   emoji="🔥"
@@ -117,14 +171,31 @@ export default function Home() {
                 />
               </View>
             }
+            ListEmptyComponent={
+              arrivals.isError ? (
+                <ErrorState
+                  error={arrivals.error}
+                  onRetry={() => arrivals.refetch()}
+                />
+              ) : null
+            }
           />
         ) : (
-          <FlatList
-            data={CATEGORIES}
+          <FlatList<CategoryItem>
+            data={categoryData}
             keyExtractor={(item) => item.id}
             renderItem={renderCategory}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
+            ListEmptyComponent={
+              categories.isError ? (
+                <ErrorState
+                  error={categories.error}
+                  onRetry={() => categories.refetch()}
+                />
+              ) : null
+            }
           />
         )}
       </FadeInView>
