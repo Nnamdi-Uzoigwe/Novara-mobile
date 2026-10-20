@@ -121,7 +121,7 @@ export function PaymentSheet({
 
             <View style={styles.successText}>
               <AppText size={22} weight="bold" align="center">
-                Order Successfully
+                Order Successful!
               </AppText>
               <AppText
                 size={13}

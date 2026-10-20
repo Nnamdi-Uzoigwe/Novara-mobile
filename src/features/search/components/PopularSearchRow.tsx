@@ -1,7 +1,8 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import type { PopularBadge } from "@/features/search/data/popular";
+import type { PopularBadge } from "@/features/catalog/types";
 import { AppText } from "@/shared/components/AppText";
+import { Skeleton } from "@/shared/components/Skeleton";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Image, type ImageSource } from "expo-image";
 import React, { useMemo } from "react";
@@ -64,6 +65,23 @@ function PopularSearchRowBase({
 }
 
 export const PopularSearchRow = React.memo(PopularSearchRowBase);
+
+/** Grey placeholder shown while popular searches load */
+export function PopularSearchRowSkeleton() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <View style={styles.row}>
+      <Skeleton width={62} height={62} radius={10} />
+      <View style={styles.text}>
+        <Skeleton width="55%" height={16} />
+        <Skeleton width="35%" height={12} />
+      </View>
+      <Skeleton width={64} height={28} radius={14} />
+    </View>
+  );
+}
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({

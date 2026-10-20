@@ -1,11 +1,12 @@
 import { errorMessage } from "@/core/api/ApiClientError";
 import type { Product } from "@/features/home/types";
 import {
-    useInfiniteQuery,
-    useMutation,
-    useQuery,
-    useQueryClient,
-    type QueryClient,
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
 } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { Alert } from "react-native";
@@ -65,6 +66,16 @@ export const useInfiniteProducts = (query: ProductQuery) =>
     queryFn: ({ pageParam }) =>
       catalogApi.products({ ...query, page: pageParam }),
     getNextPageParam: (last) => (last.hasMore ? last.page + 1 : undefined),
+  });
+
+/** A few matches while typing. The previous matches stay visible until the new ones arrive */
+export const useProductSuggestions = (term: string) =>
+  useQuery({
+    queryKey: keys.products({ q: term, limit: 5 }),
+    queryFn: () => catalogApi.products({ q: term, limit: 5 }),
+    enabled: term.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
 // -------------------------------------------------------------- one product

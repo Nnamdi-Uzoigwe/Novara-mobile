@@ -1,13 +1,19 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import { getProductById } from "@/features/home/data/mock";
+import {
+  usePopularSearches,
+  useProductSuggestions,
+} from "@/features/catalog/hooks";
 import type { Product } from "@/features/home/types";
-import { getProducts } from "@/features/products/queries";
-import { PopularSearchRow } from "@/features/search/components/PopularSearchRow";
-import { POPULAR_SEARCHES } from "@/features/search/data/popular";
+import {
+  PopularSearchRow,
+  PopularSearchRowSkeleton,
+} from "@/features/search/components/PopularSearchRow";
 import { AppInput } from "@/shared/components/AppInput";
 import { AppText } from "@/shared/components/AppText";
 import { Chip } from "@/shared/components/Chip";
+import { Skeleton } from "@/shared/components/Skeleton";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { formatPrice } from "@/shared/utils/formatPrice";
 import { useSearchStore } from "@/store/searchStore";
 import Feather from "@expo/vector-icons/Feather";
@@ -15,12 +21,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-    Keyboard,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -36,20 +42,19 @@ export default function SearchScreen() {
 
   const [query, setQuery] = useState("");
   const trimmed = query.trim();
+  // The server is only asked after you pause typing
+  const debounced = useDebouncedValue(trimmed, 300);
 
-  const popular = useMemo(
-    () =>
-      POPULAR_SEARCHES.map((item) => ({
-        ...item,
-        image: getProductById(item.productId)?.image,
-      })),
-    [],
-  );
+  const popular = usePopularSearches();
+  const suggestions = useProductSuggestions(debounced);
 
-  const suggestions = useMemo(
-    () => (trimmed ? getProducts({ search: trimmed }).slice(0, 5) : []),
-    [trimmed],
-  );
+  const matches = suggestions.data?.items ?? [];
+  const waitingForFirstResults = suggestions.isFetching && !suggestions.data;
+  const noMatches =
+    !suggestions.isFetching &&
+    !suggestions.isError &&
+    debounced === trimmed &&
+    matches.length === 0;
 
   const runSearch = useCallback(
     (term: string) => {
@@ -91,6 +96,7 @@ export default function SearchScreen() {
           onChangeText={setQuery}
           autoFocus
           autoCapitalize="none"
+          maxLength={60}
           returnKeyType="search"
           onSubmitEditing={() => runSearch(query)}
           containerStyle={styles.input}
@@ -151,7 +157,17 @@ export default function SearchScreen() {
               />
             </Pressable>
 
-            {suggestions.map((product) => (
+            {waitingForFirstResults &&
+              [0, 1, 2].map((index) => (
+                <View key={index} style={styles.suggestRow}>
+                  <Skeleton width={48} height={48} radius={10} />
+                  <View style={styles.flex}>
+                    <Skeleton width="60%" height={14} />
+                  </View>
+                </View>
+              ))}
+
+            {matches.map((product) => (
               <Pressable
                 key={product.id}
                 style={({ pressed }) => [
@@ -182,7 +198,18 @@ export default function SearchScreen() {
               </Pressable>
             ))}
 
-            {suggestions.length === 0 && (
+            {suggestions.isError && (
+              <AppText
+                size={13}
+                weight="medium"
+                color="textSecondary"
+                align="center"
+              >
+                Couldn't load suggestions. You can still press search.
+              </AppText>
+            )}
+
+            {noMatches && (
               <AppText
                 size={13}
                 weight="medium"
@@ -226,18 +253,40 @@ export default function SearchScreen() {
                 Popular Search
               </AppText>
 
-              <View style={styles.popular}>
-                {popular.map((item) => (
-                  <PopularSearchRow
-                    key={item.id}
-                    term={item.term}
-                    searchesToday={item.searchesToday}
-                    badge={item.badge}
-                    image={item.image}
-                    onPress={() => runSearch(item.term)}
-                  />
-                ))}
-              </View>
+              {popular.isLoading ? (
+                <View style={styles.popular}>
+                  {[0, 1, 2, 3].map((index) => (
+                    <PopularSearchRowSkeleton key={index} />
+                  ))}
+                </View>
+              ) : popular.isError && !popular.data ? (
+                <View style={styles.retry}>
+                  <AppText size={13} weight="medium" color="textSecondary">
+                    Couldn't load popular searches.
+                  </AppText>
+                  <TouchableOpacity
+                    onPress={() => popular.refetch()}
+                    hitSlop={10}
+                  >
+                    <AppText size={13} weight="bold" color="primary">
+                      Try again
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.popular}>
+                  {popular.data?.map((item) => (
+                    <PopularSearchRow
+                      key={item.id}
+                      term={item.term}
+                      searchesToday={item.searchesToday}
+                      badge={item.badge}
+                      image={item.image}
+                      onPress={() => runSearch(item.term)}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           </>
         )}
@@ -285,6 +334,11 @@ const createStyles = (c: ThemeColors) =>
     },
     popular: {
       gap: 18,
+    },
+    retry: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
     },
     suggestions: {
       gap: 16,
