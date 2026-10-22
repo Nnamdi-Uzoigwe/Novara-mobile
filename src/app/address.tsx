@@ -1,45 +1,36 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import { LocationCard } from "@/features/checkout/components/LocationCard";
-import { LOCATIONS } from "@/features/checkout/data/locations";
-import { AppInput } from "@/shared/components/AppInput";
+import { AddressOptionCard } from "@/features/addresses/components/AddressOptionCard";
+import { useAddresses, useSelectedAddress } from "@/features/addresses/hooks";
 import { AppText } from "@/shared/components/AppText";
 import { Button } from "@/shared/components/Button";
+import { EmptyState } from "@/shared/components/EmptyState";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
+import { Skeleton } from "@/shared/components/Skeleton";
 import { useAddressStore } from "@/store/addressStore";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const PIN_COLORS = ["#1FBFA5", "#6C5CE7", "#F25C7A"];
 
 export default function AddressScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const saved = useAddressStore((s) => s.selected);
-  const setSelected = useAddressStore((s) => s.setSelected);
+  const { data, isLoading, error, refetch } = useAddresses();
+  const { address: current } = useSelectedAddress();
+  const select = useAddressStore((s) => s.select);
 
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(saved?.id ?? LOCATIONS[0].id);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const activeId = pendingId ?? current?.id ?? null;
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return LOCATIONS;
-    return LOCATIONS.filter(
-      (l) =>
-        l.city.toLowerCase().includes(q) ||
-        l.description.toLowerCase().includes(q),
-    );
-  }, [query]);
+  const addresses = data ?? [];
 
   const handleConfirm = () => {
-    const location = LOCATIONS.find((l) => l.id === selectedId);
-    if (!location) return;
-    setSelected(location);
+    if (activeId) select(activeId);
     router.back();
   };
 
@@ -47,88 +38,72 @@ export default function AddressScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Address" />
 
-      <View style={styles.top}>
-        <AppText size={20} weight="bold">
-          Choose your location
-        </AppText>
-        <AppText
-          size={14}
-          weight="medium"
-          color="textSecondary"
-          lineHeight={21}
-        >
-          Let's find your delivery address. Choose a location below to get
-          started.
-        </AppText>
-
-        <AppInput
-          variant="outlined"
+      {isLoading ? (
+        <View style={styles.content}>
+          {[0, 1].map((i) => (
+            <Skeleton key={i} width="100%" height={110} radius={14} />
+          ))}
+        </View>
+      ) : error && addresses.length === 0 ? (
+        <ErrorState error={error} onRetry={() => refetch()} />
+      ) : addresses.length === 0 ? (
+        <EmptyState
           icon="map-pin"
-          placeholder="Search city"
-          value={query}
-          onChangeText={setQuery}
-          autoCapitalize="words"
-          returnKeyType="search"
-          containerStyle={styles.search}
-          right={
-            <TouchableOpacity
-              onPress={() => {
-                // TODO: use expo-location to find the user's current city
-              }}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Use my current location"
-            >
-              <Ionicons
-                name="locate-outline"
-                size={22}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          }
+          title="No saved addresses"
+          subtitle="Add the address where your orders should be delivered."
+          actionLabel="Add address"
+          onAction={() => router.push("/address-form" as any)}
         />
-
-        <AppText size={18} weight="bold" style={styles.listTitle}>
-          Select location
-        </AppText>
-      </View>
-
-      <FlatList
-        data={results}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <LocationCard
-            location={item}
-            selected={item.id === selectedId}
-            tint={PIN_COLORS[index % PIN_COLORS.length]}
-            onPress={() => setSelectedId(item.id)}
-          />
-        )}
-        ItemSeparatorComponent={() => <View style={styles.gap} />}
-        ListEmptyComponent={
-          <AppText
-            size={14}
-            weight="medium"
-            color="textSecondary"
-            align="center"
+      ) : (
+        <>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
           >
-            No locations found
-          </AppText>
-        }
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      />
+            <AppText size={20} weight="bold">
+              Choose your address
+            </AppText>
+            <AppText size={14} weight="medium" color="textSecondary">
+              Orders will be delivered to the address you select.
+            </AppText>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Button
-          label="Confirm"
-          size="lg"
-          disabled={!results.some((l) => l.id === selectedId)}
-          onPress={handleConfirm}
-        />
-      </View>
+            {addresses.map((address) => (
+              <AddressOptionCard
+                key={address.id}
+                address={address}
+                selected={address.id === activeId}
+                onPress={() => setPendingId(address.id)}
+                onEdit={() =>
+                  router.push({
+                    pathname: "/address-form" as any,
+                    params: { id: address.id },
+                  })
+                }
+              />
+            ))}
+
+            <Pressable
+              style={styles.addRow}
+              onPress={() => router.push("/address-form" as any)}
+              accessibilityRole="button"
+            >
+              <Feather name="plus-circle" size={22} color={colors.primary} />
+              <AppText size={14} weight="bold" color="primary">
+                Add new address
+              </AppText>
+            </Pressable>
+          </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+            <Button
+              label="Confirm"
+              size="lg"
+              disabled={!activeId}
+              onPress={handleConfirm}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -139,24 +114,22 @@ const createStyles = (c: ThemeColors) =>
       flex: 1,
       backgroundColor: c.background,
     },
-    top: {
+    content: {
       paddingHorizontal: 20,
       paddingTop: 8,
-      gap: 8,
+      paddingBottom: 24,
+      gap: 14,
     },
-    search: {
-      marginTop: 12,
-    },
-    listTitle: {
-      marginTop: 12,
-      marginBottom: 4,
-    },
-    listContent: {
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-    },
-    gap: {
-      height: 12,
+    addRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      height: 56,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: c.primary,
     },
     footer: {
       paddingHorizontal: 20,

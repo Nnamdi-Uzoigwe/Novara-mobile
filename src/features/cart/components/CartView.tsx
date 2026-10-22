@@ -2,10 +2,10 @@ import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
 import { CartItemRow } from "@/features/cart/components/CartItemRow";
 import { CartSummary } from "@/features/cart/components/CartSummary";
+import { useShippingFee } from "@/features/checkout/hooks";
 import { AppText } from "@/shared/components/AppText";
 import { Button } from "@/shared/components/Button";
 import {
-  SHIPPING_FEE,
   useCartStore,
   useCartSubtotal,
   useSelectedCount,
@@ -38,7 +38,7 @@ export function CartView({
 
   const subtotal = useCartSubtotal();
   const selectedCount = useSelectedCount();
-  const shipping = selectedCount > 0 ? SHIPPING_FEE : 0;
+  const shipping = useShippingFee(subtotal);
 
   const handleCheckout = () => {
     router.push("/payment");

@@ -1,4 +1,4 @@
-import type { Order } from "@/features/orders/types";
+import type { Order } from "./types";
 
 const MONTHS = [
   "Jan",
@@ -29,9 +29,6 @@ export const formatOrderDate = (ms: number) => {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} at ${formatTime(ms)}`;
 };
 
-/** Short readable reference, such as "#482913" */
-export const shortId = (id: string) => `#${id.replace(/\D/g, "").slice(-6)}`;
-
 export const totalQuantity = (order: Order) =>
   order.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -44,18 +41,26 @@ export type TimelineStep = {
   state: "done" | "current" | "pending";
 };
 
-// TODO: replace with real tracking events from your backend
+/** Builds the tracking steps from the real events saved on the order */
 export const buildTimeline = (order: Order): TimelineStep[] => {
-  const completed = order.status === "completed";
-  const at = (minutes: number) =>
-    formatTime(order.createdAt + minutes * 60_000);
+  const at = (status: Order["status"]) =>
+    order.events.find((event) => event.status === status)?.at;
+
+  const placedAt = at("processing") ?? order.createdAt;
+  const shippedAt = at("shipped");
+  const arrivedAt = at("delivered") ?? at("completed");
+
+  const arrived = order.status === "delivered" || order.status === "completed";
+  const onTheWay = order.status === "shipped";
+
+  const time = (value?: number) => (value ? formatTime(value) : "Pending");
 
   return [
     {
       id: "shop",
       title: "Novara Store",
       subtitle: "Shop",
-      time: at(10),
+      time: time(placedAt),
       icon: "shop",
       state: "done",
     },
@@ -63,17 +68,17 @@ export const buildTimeline = (order: Order): TimelineStep[] => {
       id: "delivery",
       title: "On the way",
       subtitle: "Delivery",
-      time: at(50),
+      time: time(shippedAt),
       icon: "delivery",
-      state: completed ? "done" : "current",
+      state: arrived ? "done" : onTheWay ? "current" : "pending",
     },
     {
       id: "address",
       title: `${order.address.line1}, ${order.address.city}`,
       subtitle: order.address.label,
-      time: at(90),
+      time: time(arrivedAt),
       icon: "address",
-      state: completed ? "done" : "pending",
+      state: arrived ? "done" : "pending",
     },
   ];
 };

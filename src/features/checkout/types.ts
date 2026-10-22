@@ -10,9 +10,17 @@ export type Address = {
   postalCode: string;
 };
 
+// export type PaymentMethod = {
+//   id: string;
+//   /** "card" covers any card that is not Visa or Mastercard, such as Verve */
+//   type: "paypal" | "mastercard" | "visa" | "card";
+//   title: string;
+//   /** Masked text only. Never store a full card number or CVV */
+//   detail: string;
+// };
+
 export type PaymentMethod = {
   id: string;
-  /** "card" covers any card that is not Visa or Mastercard, such as Verve */
   type: "paypal" | "mastercard" | "visa" | "card";
   title: string;
   /** Masked text only. Never store a full card number or CVV */

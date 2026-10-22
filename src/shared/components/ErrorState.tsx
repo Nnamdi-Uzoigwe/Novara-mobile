@@ -35,9 +35,11 @@ export function ErrorState({ error, message, onRetry }: ErrorStateProps) {
         {message ?? errorMessage(error)}
       </AppText>
 
-      {onRetry && (
-        <Button label="Try again" fullWidth={false} onPress={onRetry} />
-      )}
+      <View style={styles.center}>
+        {onRetry && (
+          <Button label="Try again" fullWidth={false} onPress={onRetry} />
+        )}
+      </View>
     </View>
   );
 }
@@ -56,5 +58,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
+  },
+  center: {
+    justifyContent: "center",
   },
 });

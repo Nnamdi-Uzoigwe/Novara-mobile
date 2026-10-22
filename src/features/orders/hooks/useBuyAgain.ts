@@ -18,7 +18,6 @@ export function useBuyAgain() {
             seller: "",
             price: item.price,
             image: item.image,
-            stock: item.stock,
           },
           item.quantity,
           item.color,

@@ -1,15 +1,19 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import { formatAddress } from "@/features/checkout/components/AddressCard";
+import { formatAddress } from "@/features/addresses/format";
 import { OrderProductRow } from "@/features/checkout/components/OrderProductRow";
+import { useOrder } from "@/features/orders/hooks";
 import { useBuyAgain } from "@/features/orders/hooks/useBuyAgain";
-import { formatOrderDate, shortId } from "@/features/orders/utils";
+import { STATUS_LABEL, STATUS_TONE } from "@/features/orders/status";
+import { isActiveStatus } from "@/features/orders/types";
+import { formatOrderDate } from "@/features/orders/utils";
 import { AppText } from "@/shared/components/AppText";
 import { Button } from "@/shared/components/Button";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
+import { Skeleton } from "@/shared/components/Skeleton";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { formatPrice } from "@/shared/utils/formatPrice";
-import { useOrdersStore } from "@/store/ordersStore";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -21,28 +25,27 @@ export default function OrderDetailsScreen() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const order = useOrdersStore((s) => s.orders.find((o) => o.id === id));
+  const { data: order, isLoading, error, refetch } = useOrder(id);
   const buyAgain = useBuyAgain();
 
   if (!order) {
     return (
       <View style={styles.container}>
         <ScreenHeader title="Order Details" />
-        <View style={styles.center}>
-          <AppText weight="semibold" color="textSecondary">
-            Order not found
-          </AppText>
-          <Button
-            label="Go back"
-            fullWidth={false}
-            onPress={() => router.back()}
-          />
-        </View>
+        {isLoading ? (
+          <View style={styles.content}>
+            <Skeleton width="100%" height={40} radius={10} />
+            <Skeleton width="100%" height={90} radius={14} />
+            <Skeleton width="100%" height={160} radius={14} />
+          </View>
+        ) : (
+          <ErrorState error={error} onRetry={() => refetch()} />
+        )}
       </View>
     );
   }
 
-  const completed = order.status === "completed";
+  const active = isActiveStatus(order.status);
 
   return (
     <View style={styles.container}>
@@ -56,15 +59,15 @@ export default function OrderDetailsScreen() {
         <View style={styles.summaryRow}>
           <View style={styles.summaryText}>
             <AppText size={18} weight="bold">
-              {`Order ${shortId(order.id)}`}
+              {`Order ${order.number}`}
             </AppText>
             <AppText size={12} weight="medium" color="textSecondary">
               {formatOrderDate(order.createdAt)}
             </AppText>
           </View>
           <StatusBadge
-            label={completed ? "Completed" : "On Progress"}
-            tone={completed ? "success" : "primary"}
+            label={STATUS_LABEL[order.status]}
+            tone={STATUS_TONE[order.status]}
           />
         </View>
 
@@ -76,6 +79,9 @@ export default function OrderDetailsScreen() {
           <View style={styles.block}>
             <AppText size={14} weight="bold">
               {order.address.label}
+            </AppText>
+            <AppText size={13} weight="semibold">
+              {`${order.address.recipientName} · ${order.address.phone}`}
             </AppText>
             <AppText
               size={13}
@@ -94,8 +100,8 @@ export default function OrderDetailsScreen() {
             {`Products (${order.items.length})`}
           </AppText>
           <View style={styles.products}>
-            {order.items.map((item) => (
-              <OrderProductRow key={item.key} item={item} />
+            {order.items.map((item, index) => (
+              <OrderProductRow key={`${item.productId}-${index}`} item={item} />
             ))}
           </View>
         </View>
@@ -107,27 +113,30 @@ export default function OrderDetailsScreen() {
           </AppText>
           <View style={styles.block}>
             <AppText size={14} weight="bold">
-              {order.paymentTitle}
+              {order.payment.method}
             </AppText>
-            <AppText size={13} weight="medium" color="textSecondary">
-              {order.paymentDetail}
-            </AppText>
+            {!!order.payment.detail && (
+              <AppText size={13} weight="medium" color="textSecondary">
+                {order.payment.detail}
+              </AppText>
+            )}
           </View>
         </View>
 
         {/* Totals */}
         <View style={styles.totals}>
           <Row label="Subtotal" value={formatPrice(order.subtotal)} />
-          <Row label="Shipping" value={formatPrice(order.shipping)} />
+          <Row
+            label="Shipping"
+            value={order.shipping === 0 ? "Free" : formatPrice(order.shipping)}
+          />
           <View style={styles.divider} />
           <Row label="Total amount" value={formatPrice(order.total)} strong />
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        {completed ? (
-          <Button label="Buy Again" size="lg" onPress={() => buyAgain(order)} />
-        ) : (
+        {active ? (
           <Button
             label="Track Order"
             size="lg"
@@ -138,6 +147,8 @@ export default function OrderDetailsScreen() {
               })
             }
           />
+        ) : (
+          <Button label="Buy Again" size="lg" onPress={() => buyAgain(order)} />
         )}
       </View>
     </View>
@@ -182,12 +193,6 @@ const createStyles = (c: ThemeColors) =>
     container: {
       flex: 1,
       backgroundColor: c.background,
-    },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 16,
     },
     content: {
       paddingHorizontal: 20,

@@ -1,23 +1,29 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import type { Address } from "@/features/checkout/types";
+import { formatAddress } from "@/features/addresses/format";
+import type { Address } from "@/features/addresses/types";
 import { AppText } from "@/shared/components/AppText";
+import { Skeleton } from "@/shared/components/Skeleton";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-export const formatAddress = (a: Address) =>
-  `${a.line1}, ${a.city}, ${a.region}, ${a.postalCode}`;
-
 type AddressCardProps = {
   address: Address | null;
+  loading?: boolean;
   onPress: () => void;
 };
 
-export function AddressCard({ address, onPress }: AddressCardProps) {
+export function AddressCard({
+  address,
+  loading = false,
+  onPress,
+}: AddressCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  if (loading) return <Skeleton width="100%" height={72} radius={12} />;
 
   if (!address) {
     return (
@@ -29,7 +35,7 @@ export function AddressCard({ address, onPress }: AddressCardProps) {
       >
         <Feather name="plus-circle" size={22} color={colors.primary} />
         <AppText size={14} weight="semibold" color="primary">
-          Choose delivery address
+          Add a delivery address
         </AppText>
       </Pressable>
     );
@@ -42,7 +48,6 @@ export function AddressCard({ address, onPress }: AddressCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`Delivery address: ${formatAddress(address)}`}
     >
-      {/* TODO: swap for a real static map image */}
       <View style={styles.map}>
         <Ionicons name="location" size={30} color={colors.danger} />
       </View>
@@ -50,6 +55,9 @@ export function AddressCard({ address, onPress }: AddressCardProps) {
       <View style={styles.text}>
         <AppText size={16} weight="bold">
           {address.label}
+        </AppText>
+        <AppText size={12} weight="semibold">
+          {`${address.recipientName} · ${address.phone}`}
         </AppText>
         <AppText
           size={12}
@@ -82,7 +90,7 @@ const createStyles = (c: ThemeColors) =>
     },
     text: {
       flex: 1,
-      gap: 4,
+      gap: 3,
     },
     empty: {
       flexDirection: "row",

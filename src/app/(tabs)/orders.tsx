@@ -1,43 +1,53 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
 import { OrderCard } from "@/features/orders/components/OrderCard";
+import { useOrders } from "@/features/orders/hooks";
 import { useBuyAgain } from "@/features/orders/hooks/useBuyAgain";
 import type { Order } from "@/features/orders/types";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
+import { Skeleton } from "@/shared/components/Skeleton";
 import { TopTabs } from "@/shared/components/TopTabs";
-import { useOrdersStore } from "@/store/ordersStore";
+import { useRefresh } from "@/shared/hooks/useRefresh";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
 
 const TABS = ["My Order", "History"];
+const SKELETONS = [{ id: "s1" }, { id: "s2" }, { id: "s3" }];
+
+type Item = Order | { id: string };
 
 export default function OrdersScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
-  const orders = useOrdersStore((s) => s.orders);
-  const buyAgain = useBuyAgain();
-
   const [index, setIndex] = useState(0);
+  const active = useOrders("active");
+  const history = useOrders("history");
+  const query = index === 0 ? active : history;
+
+  const buyAgain = useBuyAgain();
+  const { refreshing, onRefresh } = useRefresh(query.refetch);
 
   // Lets other screens open the History tab, for example after "Mark as Done"
   useEffect(() => {
     if (tab === "history") setIndex(1);
   }, [tab]);
 
-  const active = useMemo(
-    () => orders.filter((order) => order.status === "in_progress"),
-    [orders],
+  const orders = useMemo(
+    () => query.data?.pages.flatMap((page) => page.items) ?? [],
+    [query.data],
   );
-  const history = useMemo(
-    () => orders.filter((order) => order.status === "completed"),
-    [orders],
-  );
-  const data = index === 0 ? active : history;
 
   const handleDetail = useCallback((order: Order) => {
     router.push({ pathname: "/order-details/[id]", params: { id: order.id } });
@@ -48,16 +58,21 @@ export default function OrdersScreen() {
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: Order }) => (
-      <OrderCard
-        order={item}
-        onDetail={handleDetail}
-        onTracking={handleTracking}
-        onBuyAgain={buyAgain}
-      />
-    ),
+    ({ item }: { item: Item }) =>
+      "number" in item ? (
+        <OrderCard
+          order={item}
+          onDetail={handleDetail}
+          onTracking={handleTracking}
+          onBuyAgain={buyAgain}
+        />
+      ) : (
+        <Skeleton width="100%" height={170} radius={16} />
+      ),
     [handleDetail, handleTracking, buyAgain],
   );
+
+  const data: Item[] = query.isLoading ? SKELETONS : orders;
 
   return (
     <View style={styles.container}>
@@ -66,7 +81,7 @@ export default function OrdersScreen() {
       <TopTabs tabs={TABS} activeIndex={index} onChange={setIndex} />
 
       <FadeInView key={index} style={styles.flex} duration={350} distance={12}>
-        <FlatList
+        <FlatList<Item>
           data={data}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -76,8 +91,29 @@ export default function OrdersScreen() {
             data.length === 0 && styles.listEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          onEndReached={() => {
+            if (query.hasNextPage && !query.isFetchingNextPage)
+              query.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            query.isFetchingNextPage ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            index === 0 ? (
+            query.isError ? (
+              <ErrorState error={query.error} onRetry={() => query.refetch()} />
+            ) : index === 0 ? (
               <EmptyState
                 icon="package"
                 title="No active orders"
@@ -117,5 +153,8 @@ const createStyles = (c: ThemeColors) =>
     },
     gap: {
       height: 16,
+    },
+    footer: {
+      paddingVertical: 16,
     },
   });

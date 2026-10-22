@@ -1,6 +1,7 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import type { Order } from "@/features/orders/types";
+import { STATUS_LABEL, STATUS_TONE } from "@/features/orders/status";
+import { isActiveStatus, type Order } from "@/features/orders/types";
 import { totalQuantity } from "@/features/orders/utils";
 import { AppText } from "@/shared/components/AppText";
 import { Button } from "@/shared/components/Button";
@@ -28,7 +29,7 @@ function OrderCardBase({
 
   const first = order.items[0];
   const more = order.items.length - 1;
-  const completed = order.status === "completed";
+  const active = isActiveStatus(order.status);
 
   return (
     <View style={styles.card}>
@@ -53,10 +54,14 @@ function OrderCardBase({
               {first?.name ?? "Order"}
             </AppText>
             <StatusBadge
-              label={completed ? "Completed" : "On Progress"}
-              tone={completed ? "success" : "primary"}
+              label={STATUS_LABEL[order.status]}
+              tone={STATUS_TONE[order.status]}
             />
           </View>
+
+          <AppText size={11} weight="medium" color="textSecondary">
+            {`Order ${order.number}`}
+          </AppText>
 
           {first?.color && (
             <View style={styles.colorRow}>
@@ -96,11 +101,11 @@ function OrderCardBase({
           onPress={() => onDetail(order)}
         />
         <Button
-          label={completed ? "Buy Again" : "Tracking"}
+          label={active ? "Tracking" : "Buy Again"}
           size="sm"
           fullWidth={false}
           style={styles.actionBtn}
-          onPress={() => (completed ? onBuyAgain(order) : onTracking(order))}
+          onPress={() => (active ? onTracking(order) : onBuyAgain(order))}
         />
       </View>
     </View>
@@ -124,14 +129,14 @@ const createStyles = (c: ThemeColors) =>
       gap: 12,
     },
     image: {
-      height: 84,
+      height: 96,
       width: 68,
       borderRadius: 10,
       backgroundColor: c.surfaceMuted,
     },
     info: {
       flex: 1,
-      gap: 5,
+      gap: 4,
     },
     titleRow: {
       flexDirection: "row",

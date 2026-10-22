@@ -180,6 +180,7 @@ function RootStack() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="add-card" />
           <Stack.Screen name="address" />
+          <Stack.Screen name="address-form" />
           <Stack.Screen name="payment" />
           <Stack.Screen name="products" />
           <Stack.Screen name="search" />

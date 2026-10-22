@@ -1,16 +1,21 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
+import { useSelectedAddress } from "@/features/addresses/hooks";
 import { AddressCard } from "@/features/checkout/components/AddressCard";
 import { OrderProductRow } from "@/features/checkout/components/OrderProductRow";
 import { PaymentIcon } from "@/features/checkout/components/PaymentIcon";
 import { PaymentSheet } from "@/features/checkout/components/PaymentSheet";
+import { handleOrderError } from "@/features/checkout/handleOrderError";
+import { useShippingFee } from "@/features/checkout/hooks";
+import { newRequestId } from "@/features/checkout/requestId";
+import { usePlaceOrder } from "@/features/orders/hooks";
+import type { Order } from "@/features/orders/types";
 import { AppText } from "@/shared/components/AppText";
 import { Button } from "@/shared/components/Button";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
 import { formatPrice } from "@/shared/utils/formatPrice";
 import { useAddressStore } from "@/store/addressStore";
-import { SHIPPING_FEE, useCartStore, type CartItem } from "@/store/cartStore";
-import { useOrdersStore } from "@/store/ordersStore";
+import { useCartStore, type CartItem } from "@/store/cartStore";
 import { usePaymentStore } from "@/store/paymentStore";
 import Feather from "@expo/vector-icons/Feather";
 import { router } from "expo-router";
@@ -24,8 +29,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default function PaymentScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -33,9 +36,10 @@ export default function PaymentScreen() {
 
   const items = useCartStore((s) => s.items);
   const removeSelected = useCartStore((s) => s.removeSelected);
-  const placeOrder = useOrdersStore((s) => s.placeOrder);
+  const selectedItems = useMemo(() => items.filter((i) => i.selected), [items]);
 
-  const address = useAddressStore((s) => s.selected);
+  const { address, isLoading: addressLoading } = useSelectedAddress();
+  const selectAddress = useAddressStore((s) => s.select);
 
   const methods = usePaymentStore((s) => s.methods);
   const selectedId = usePaymentStore((s) => s.selectedId);
@@ -45,7 +49,7 @@ export default function PaymentScreen() {
     [methods, selectedId],
   );
 
-  const selectedItems = useMemo(() => items.filter((i) => i.selected), [items]);
+  const placeOrder = usePlaceOrder();
 
   // After paying, the cart items are removed, so the screen keeps showing a frozen copy
   const [snapshot, setSnapshot] = useState<CartItem[] | null>(null);
@@ -55,13 +59,19 @@ export default function PaymentScreen() {
     () => displayItems.reduce((sum, i) => sum + i.price * i.quantity, 0),
     [displayItems],
   );
-  const shipping = displayItems.length > 0 ? SHIPPING_FEE : 0;
+  const shipping = useShippingFee(subtotal);
   const total = subtotal + shipping;
+
+  // A new id whenever the cart changes. The same cart keeps the same id, so a retry
+  // after a bad connection gives back the order that was already placed
+  const signature = displayItems
+    .map((i) => `${i.key}:${i.quantity}:${i.price}`)
+    .join("|");
+  const requestId = useMemo(() => newRequestId(), [signature]);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetMode, setSheetMode] = useState<"methods" | "success">("methods");
-  const [paying, setPaying] = useState(false);
-  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
   const openSheet = () => {
     setSheetMode("methods");
@@ -74,53 +84,54 @@ export default function PaymentScreen() {
   };
 
   const handleConfirmPayment = async () => {
-    if (!address || !method || paying) return;
+    if (!address || !method || placeOrder.isPending) return;
 
-    setPaying(true);
-    await wait(900); // TODO: charge through your payment provider and wait for the result
+    try {
+      const { order } = await placeOrder.mutateAsync({
+        clientRequestId: requestId,
+        addressId: address.id,
+        items: displayItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          color: item.color,
+        })),
+        // TODO: real payment goes here (Paystack). For now the server records a simulated payment
+        payment: { method: method.title, detail: method.detail },
+        expectedTotal: Math.round(total * 100) / 100,
+      });
 
-    const order = placeOrder({
-      items: displayItems,
-      address,
-      paymentTitle: method.title,
-      paymentDetail: method.detail,
-      subtotal,
-      shipping,
-      total,
-    });
-    setPlacedOrderId(order.id);
-
-    setSnapshot(displayItems);
-    removeSelected();
-    setPaying(false);
-    setSheetMode("success");
+      setSnapshot(displayItems);
+      removeSelected();
+      setPlacedOrder(order);
+      setSheetMode("success");
+    } catch (err) {
+      setSheetVisible(false);
+      handleOrderError(err, { onAddressMissing: () => selectAddress(null) });
+    }
   };
 
   const handleSheetClose = () => {
-    if (paying) return;
-    if (sheetMode === "success") {
-      setSheetVisible(false);
-      router.navigate("/(tabs)/home");
-      return;
-    }
+    if (placeOrder.isPending) return;
+
     setSheetVisible(false);
+    if (sheetMode === "success") router.navigate("/(tabs)/home");
   };
 
   const handleTrackOrder = () => {
     setSheetVisible(false);
-    // Go to the Orders tab first, so Back from tracking lands on the orders list
+    // Orders tab first, so Back from tracking lands on the orders list
     router.navigate("/(tabs)/orders");
-    if (placedOrderId) {
+    if (placedOrder) {
       router.push({
         pathname: "/order-tracking/[id]",
-        params: { id: placedOrderId },
+        params: { id: placedOrder.id },
       });
     }
   };
 
   const canCheckout = !!address && !!method;
   const hint = !address
-    ? "Choose a delivery address to continue"
+    ? "Add a delivery address to continue"
     : !method
       ? "Choose a payment method to continue"
       : null;
@@ -178,7 +189,11 @@ export default function PaymentScreen() {
           </View>
           <AddressCard
             address={address}
-            onPress={() => router.push("/address")}
+            loading={addressLoading}
+            // onPress={() => router.push(address ? "/address" : "/address-form")}
+            onPress={() =>
+              router.push((address ? "/address" : "/address-form") as any)
+            }
           />
         </View>
 
@@ -236,13 +251,31 @@ export default function PaymentScreen() {
 
       {/* Fixed bottom bar */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={styles.totalRow}>
-          <AppText size={14} weight="medium" color="textSecondary">
-            Total amount
-          </AppText>
-          <AppText size={22} weight="bold">
-            {formatPrice(total)}
-          </AppText>
+        <View style={styles.totals}>
+          <View style={styles.totalRow}>
+            <AppText size={13} weight="medium" color="textSecondary">
+              Subtotal
+            </AppText>
+            <AppText size={13} weight="semibold">
+              {formatPrice(subtotal)}
+            </AppText>
+          </View>
+          <View style={styles.totalRow}>
+            <AppText size={13} weight="medium" color="textSecondary">
+              Shipping
+            </AppText>
+            <AppText size={13} weight="semibold">
+              {shipping === 0 ? "Free" : formatPrice(shipping)}
+            </AppText>
+          </View>
+          <View style={styles.totalRow}>
+            <AppText size={14} weight="medium" color="textSecondary">
+              Total amount
+            </AppText>
+            <AppText size={22} weight="bold">
+              {formatPrice(total)}
+            </AppText>
+          </View>
         </View>
 
         {hint && (
@@ -269,7 +302,7 @@ export default function PaymentScreen() {
         mode={sheetMode}
         methods={methods}
         selectedId={selectedId}
-        loading={paying}
+        loading={placeOrder.isPending}
         onSelect={selectMethod}
         onAddMethod={handleAddMethod}
         onConfirm={handleConfirmPayment}
@@ -324,6 +357,9 @@ const createStyles = (c: ThemeColors) =>
       borderTopWidth: 1,
       borderTopColor: c.border,
       backgroundColor: c.background,
+    },
+    totals: {
+      gap: 6,
     },
     totalRow: {
       flexDirection: "row",

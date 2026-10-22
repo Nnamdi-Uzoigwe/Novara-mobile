@@ -2,16 +2,20 @@ import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
 import { AppText } from "@/shared/components/AppText";
 import { formatPrice } from "@/shared/utils/formatPrice";
-import type { CartItem } from "@/store/cartStore";
-import { Image } from "expo-image";
+import { Image, type ImageSource } from "expo-image";
 import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-type OrderProductRowProps = {
-  item: CartItem;
+/** Anything shown as a product line: a cart item or an ordered item */
+export type ProductLine = {
+  name: string;
+  image: ImageSource;
+  color?: { name: string };
+  price: number;
+  quantity: number;
 };
 
-function OrderProductRowBase({ item }: OrderProductRowProps) {
+function OrderProductRowBase({ item }: { item: ProductLine }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
