@@ -1,15 +1,14 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
-import { AppText } from "@/shared/components/AppText";
-import { Avatar } from "@/shared/components/Avatar";
-import { timeAgo } from "@/shared/utils/timeAgo";
 import type {
-    AppNotification,
-    NotificationKind,
-} from "@/store/notificationsStore";
+  AppNotification,
+  NotificationKind,
+} from "@/features/notifications/types";
+import { AppText } from "@/shared/components/AppText";
+import { timeAgo } from "@/shared/utils/timeAgo";
 import Feather from "@expo/vector-icons/Feather";
 import React, { useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 type FeatherName = React.ComponentProps<typeof Feather>["name"];
 
@@ -22,26 +21,27 @@ const ICONS: Record<NotificationKind, FeatherName> = {
 
 type NotificationRowProps = {
   item: AppNotification;
-  onActionPress?: (item: AppNotification) => void;
+  onPress?: (item: AppNotification) => void;
 };
 
-function NotificationRowBase({ item, onActionPress }: NotificationRowProps) {
+function NotificationRowBase({ item, onPress }: NotificationRowProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.row}>
-      {item.sender ? (
-        <Avatar uri={item.sender.avatarUri} size={44} />
-      ) : (
-        <View style={styles.iconWrap}>
-          <Feather
-            name={ICONS[item.kind]}
-            size={20}
-            color={colors.textPrimary}
-          />
-        </View>
-      )}
+    <Pressable
+      style={({ pressed }) => [
+        styles.row,
+        pressed && onPress && { opacity: 0.7 },
+      ]}
+      onPress={() => onPress?.(item)}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={`${item.title}. ${item.body}`}
+    >
+      <View style={styles.iconWrap}>
+        <Feather name={ICONS[item.kind]} size={20} color={colors.textPrimary} />
+      </View>
 
       <View style={styles.text}>
         <View style={styles.titleRow}>
@@ -65,23 +65,12 @@ function NotificationRowBase({ item, onActionPress }: NotificationRowProps) {
         >
           {item.body}
         </AppText>
-
-        {!!item.actionLabel && (
-          <AppText
-            size={12}
-            weight="semibold"
-            color="primary"
-            onPress={() => onActionPress?.(item)}
-          >
-            {item.actionLabel}
-          </AppText>
-        )}
       </View>
 
       <AppText size={11} weight="medium" color="textPlaceholder">
         {timeAgo(item.createdAt)}
       </AppText>
-    </View>
+    </Pressable>
   );
 }
 

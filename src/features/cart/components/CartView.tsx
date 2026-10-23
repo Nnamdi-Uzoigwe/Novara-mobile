@@ -17,9 +17,7 @@ import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CartViewProps = {
-  /** Show a back arrow. Only needed if the cart is ever opened as a stack screen */
   showBack?: boolean;
-  /** Add the bottom safe-area padding to the summary. Not needed above the tab bar */
   bottomInset?: boolean;
 };
 

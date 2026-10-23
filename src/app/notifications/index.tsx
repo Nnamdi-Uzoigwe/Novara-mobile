@@ -1,37 +1,70 @@
 import { useTheme } from "@/core/theme/ThemeProvider";
 import type { ThemeColors } from "@/core/theme/colors";
 import { NotificationRow } from "@/features/notifications/components/NotificationRow";
+import { markAllRead, useNotifications } from "@/features/notifications/hooks";
+import type { AppNotification } from "@/features/notifications/types";
 import { AppText } from "@/shared/components/AppText";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { ScreenHeader } from "@/shared/components/ScreenHeader";
-import {
-    useNotificationsStore,
-    type AppNotification,
-} from "@/store/notificationsStore";
+import { Skeleton } from "@/shared/components/Skeleton";
+import { useRefresh } from "@/shared/hooks/useRefresh";
 import Feather from "@expo/vector-icons/Feather";
+import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+const SKELETONS = [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }];
+
+type Item = AppNotification | { id: string };
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const client = useQueryClient();
 
-  const items = useNotificationsStore((s) => s.items);
-  const markAllRead = useNotificationsStore((s) => s.markAllRead);
+  const { data, isLoading, error, refetch } = useNotifications();
+  const { refreshing, onRefresh } = useRefresh(refetch);
 
   // Unread dots stay visible while you read, then clear when you leave the screen
-  useEffect(() => () => markAllRead(), [markAllRead]);
+  useEffect(() => () => void markAllRead(client), [client]);
 
-  const handleAction = useCallback((item: AppNotification) => {
-    // TODO: open the chat screen for messages once it exists
+  const items = data?.items ?? [];
+  const listData: Item[] = isLoading ? SKELETONS : items;
+
+  const handlePress = useCallback((item: AppNotification) => {
+    if (item.orderId) {
+      router.push({
+        pathname: "/order-details/[id]",
+        params: { id: item.orderId },
+      });
+    }
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: AppNotification }) => (
-      <NotificationRow item={item} onActionPress={handleAction} />
-    ),
-    [handleAction],
+    ({ item }: { item: Item }) =>
+      "title" in item ? (
+        <NotificationRow
+          item={item}
+          onPress={item.orderId ? handlePress : undefined}
+        />
+      ) : (
+        <View style={styles.skeletonRow}>
+          <Skeleton width={44} height={44} radius={22} />
+          <View style={styles.skeletonText}>
+            <Skeleton width="55%" height={14} />
+            <Skeleton width="90%" height={12} />
+          </View>
+        </View>
+      ),
+    [handlePress, styles],
   );
 
   return (
@@ -50,8 +83,8 @@ export default function NotificationsScreen() {
         }
       />
 
-      <FlatList
-        data={items}
+      <FlatList<Item>
+        data={listData}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -63,15 +96,26 @@ export default function NotificationsScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="bell"
-            title="No notifications"
-            subtitle="Order updates and offers will show up here."
+          error ? (
+            <ErrorState error={error} onRetry={() => refetch()} />
+          ) : (
+            <EmptyState
+              icon="bell"
+              title="No notifications"
+              subtitle="Order updates will show up here."
+            />
+          )
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
           />
         }
         contentContainerStyle={[
           styles.listContent,
-          items.length === 0 && styles.grow,
+          listData.length === 0 && styles.grow,
         ]}
         showsVerticalScrollIndicator={false}
       />
@@ -99,5 +143,14 @@ const createStyles = (c: ThemeColors) =>
     separator: {
       height: 1,
       backgroundColor: c.border,
+    },
+    skeletonRow: {
+      flexDirection: "row",
+      gap: 12,
+      paddingVertical: 16,
+    },
+    skeletonText: {
+      flex: 1,
+      gap: 8,
     },
   });
