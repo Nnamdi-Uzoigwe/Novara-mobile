@@ -233,7 +233,7 @@ function ProductCardBase({
           {product.seller}
         </AppText>
         <AppText size={15} weight="bold" align="center">
-          {`$${product.price.toFixed(2)}`}
+          {`₦${product.price.toFixed(2)}`}
         </AppText>
       </View>
     </Pressable>

@@ -172,6 +172,20 @@ export default function CreateAccount() {
         </AppText>
         <GoogleSignIn />
         <FacebookSignIn />
+
+        <View style={styles.signIn}>
+          <AppText size={16} weight="bold" color="textPrimary">
+            Already have an account?
+          </AppText>
+          <TouchableOpacity
+            onPress={() => router.replace("/(auth)/login")}
+            hitSlop={8}
+          >
+            <AppText size={16} weight="bold" color="primary">
+              Sign in
+            </AppText>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
     // </TouchableWithoutFeedback>
@@ -191,5 +205,11 @@ const styles = StyleSheet.create({
   },
   gap: {
     gap: 20,
+  },
+  signIn: {
+    marginTop: 20,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 4,
   },
 });

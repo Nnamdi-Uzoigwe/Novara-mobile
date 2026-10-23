@@ -23,11 +23,11 @@ import {
   type SkeletonItem,
 } from "@/features/home/components/Skeletons";
 import type { Category, Product } from "@/features/home/types";
+import { useUnreadCount } from "@/features/notifications/hooks";
 import { ErrorState } from "@/shared/components/ErrorState";
 import { FadeInView } from "@/shared/components/FadeInView";
 import { TopTabs } from "@/shared/components/TopTabs";
 import { useRefresh } from "@/shared/hooks/useRefresh";
-import { useNotificationsStore } from "@/store/notificationsStore";
 import { firstName, useUserStore } from "@/store/userStore";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -46,7 +46,7 @@ export default function Home() {
   const [tab, setTab] = useState(0);
 
   const user = useUserStore((s) => s.user);
-  const hasUnread = useNotificationsStore((s) => s.items.some((n) => !n.read));
+  const hasUnread = useUnreadCount() > 0;
 
   const banners = useBanners();
   const categories = useCategories();
